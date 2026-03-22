@@ -1,20 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Heart,
-  Shuffle,
-  Repeat,
-  Volume2,
-  Plus,
-  Music,
-  X,
-  ChevronUp,
+  Play, Pause, SkipBack, SkipForward, Heart, Shuffle,
+  Repeat, Volume2, VolumeX, Plus, X, ChevronDown, ListMusic,
 } from "lucide-react";
 import albumCover from "@/assets/album-cover.jpg";
 
+/* ─── Types ─────────────────────────────────────── */
 interface Track {
   title: string;
   artist: string;
@@ -23,508 +14,563 @@ interface Track {
   url?: string;
 }
 
+/* ─── Demo playlist ──────────────────────────────── */
 const defaultTracks: Track[] = [
-  { title: "Midnight Drive", artist: "Lena Voss", duration: 237 },
-  { title: "Golden Hour", artist: "Theo Marcell", duration: 204 },
-  { title: "Still Waters", artist: "Aya Nakamura", duration: 189 },
-  { title: "Neon Rain", artist: "Cassie Drake", duration: 221 },
-  { title: "Lost Signal", artist: "Mika Sato", duration: 195 },
+  { title: "Midnight Drive",  artist: "Lena Voss",      duration: 237 },
+  { title: "Golden Hour",     artist: "Theo Marcell",   duration: 204 },
+  { title: "Still Waters",    artist: "Aya Nakamura",   duration: 189 },
+  { title: "Neon Rain",       artist: "Cassie Drake",   duration: 221 },
+  { title: "Lost Signal",     artist: "Mika Sato",      duration: 195 },
+  { title: "Glass Canvas",    artist: "Elara Moon",     duration: 213 },
 ];
 
-const formatTime = (s: number) => {
+/* ─── Helpers ────────────────────────────────────── */
+const fmt = (s: number) => {
   if (!isFinite(s) || s < 0) return "0:00";
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${m}:${sec.toString().padStart(2, "0")}`;
 };
 
-const cleanFileName = (name: string) =>
-  name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+const cleanFileName = (n: string) =>
+  n.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
 
+/* ─── Equalizer bars ─────────────────────────────── */
+const EqBars = () => (
+  <div className="flex items-end gap-[2px] h-[14px]">
+    <span className="w-[3px] rounded-sm bg-primary animate-eq-1" style={{ height: 4 }} />
+    <span className="w-[3px] rounded-sm bg-primary animate-eq-2" style={{ height: 10 }} />
+    <span className="w-[3px] rounded-sm bg-primary animate-eq-3" style={{ height: 6 }} />
+  </div>
+);
+
+/* ─── Component ──────────────────────────────────── */
 const MusicPlayer = () => {
-  const [tracks, setTracks] = useState<Track[]>(defaultTracks);
-  const [currentTrack, setCurrentTrack] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [liked, setLiked] = useState(false);
-  const [shuffle, setShuffle] = useState(false);
-  const [repeat, setRepeat] = useState(false);
-  const [volume, setVolume] = useState(75);
+  const [tracks,        setTracks]        = useState<Track[]>(defaultTracks);
+  const [currentTrack,  setCurrentTrack]  = useState(0);
+  const [isPlaying,     setIsPlaying]     = useState(false);
+  const [progress,      setProgress]      = useState(0);
+  const [liked,         setLiked]         = useState(false);
+  const [shuffle,       setShuffle]       = useState(false);
+  const [repeat,        setRepeat]        = useState(false);
+  const [volume,        setVolume]        = useState(75);
+  const [muted,         setMuted]         = useState(false);
   const [transitioning, setTransitioning] = useState(false);
-  const [showPlaylist, setShowPlaylist] = useState(true);
-  const [isDragging, setIsDragging] = useState(false);
-  const [miniPlayerVisible, setMiniPlayerVisible] = useState(false);
+  const [showPlaylist,  setShowPlaylist]  = useState(true);
+  const [isDragging,    setIsDragging]    = useState(false);
+  const [isVolDragging, setIsVolDragging] = useState(false);
+  const [miniVisible,   setMiniVisible]   = useState(false);
+  const [trackKey,      setTrackKey]      = useState(0);   // triggers re-mount for fade-in
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const progressBarRef = useRef<HTMLDivElement>(null);
-  const playlistRef = useRef<HTMLDivElement>(null);
-  const trackItemsRef = useRef<(HTMLButtonElement | null)[]>([]);
-  const animFrameRef = useRef<number | null>(null);
-  const simTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const mainPlayerRef = useRef<HTMLDivElement>(null);
+  const audioRef        = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef    = useRef<HTMLInputElement>(null);
+  const progressBarRef  = useRef<HTMLDivElement>(null);
+  const volumeBarRef    = useRef<HTMLDivElement>(null);
+  const playlistRef     = useRef<HTMLDivElement>(null);
+  const trackItemsRef   = useRef<(HTMLDivElement | null)[]>([]);
+  const simTimerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const heroRef         = useRef<HTMLDivElement>(null);
 
-  const track = tracks[currentTrack];
+  const track       = tracks[currentTrack];
   const isRealAudio = !!track?.url;
+  const effectiveVol = muted ? 0 : volume;
+  const progressPct  = track.duration > 0 ? (progress / track.duration) * 100 : 0;
 
-  // Mini player visibility via IntersectionObserver
+  /* ── Mini player visibility ───────────────────── */
   useEffect(() => {
-    const el = mainPlayerRef.current;
+    const el = heroRef.current;
     if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setMiniPlayerVisible(!entry.isIntersecting),
-      { threshold: 0.2 }
+    const obs = new IntersectionObserver(
+      ([e]) => setMiniVisible(!e.isIntersecting),
+      { threshold: 0.15 }
     );
-    observer.observe(el);
-    return () => observer.disconnect();
+    obs.observe(el);
+    return () => obs.disconnect();
   }, []);
 
-  // Sync audio element when track changes
+  /* ── Audio engine ─────────────────────────────── */
   useEffect(() => {
     if (!track?.url) return;
     if (audioRef.current) {
       audioRef.current.pause();
-      const prev = audioRef.current.src;
+      const src = audioRef.current.src;
       audioRef.current.src = "";
-      if (prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+      if (src.startsWith("blob:")) URL.revokeObjectURL(src);
     }
     const audio = new Audio(track.url);
-    audio.volume = volume / 100;
+    audio.volume = effectiveVol / 100;
     audioRef.current = audio;
 
-    const onMeta = () => {
-      setTracks((prev) =>
-        prev.map((t, i) =>
-          i === currentTrack ? { ...t, duration: audio.duration } : t
-        )
-      );
-    };
-
-    const onTimeUpdate = () => {
-      if (!isDragging) setProgress(audio.currentTime);
-    };
-
-    const onEnded = () => {
-      if (repeat) {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-      } else {
-        skip(1);
-      }
-    };
+    const onMeta = () =>
+      setTracks(prev => prev.map((t, i) =>
+        i === currentTrack ? { ...t, duration: audio.duration } : t
+      ));
+    const onTime   = () => { if (!isDragging) setProgress(audio.currentTime); };
+    const onEnded  = () => { repeat ? (audio.currentTime = 0, audio.play().catch(() => {})) : skip(1); };
 
     audio.addEventListener("loadedmetadata", onMeta);
-    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("ended", onEnded);
-
     if (isPlaying) audio.play().catch(() => {});
 
     return () => {
       audio.removeEventListener("loadedmetadata", onMeta);
-      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("timeupdate", onTime);
       audio.removeEventListener("ended", onEnded);
       audio.pause();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrack, track?.url]);
 
-  // Simulated progress for demo tracks (requestAnimationFrame-based)
+  /* ── Simulated progress for demo tracks ──────── */
   useEffect(() => {
     if (isRealAudio) return;
     if (simTimerRef.current) clearInterval(simTimerRef.current);
-
     if (!isPlaying) return;
-
     simTimerRef.current = setInterval(() => {
-      setProgress((p) => {
-        if (p >= track.duration) {
-          setIsPlaying(false);
-          return 0;
-        }
+      setProgress(p => {
+        if (p >= track.duration) { setIsPlaying(false); return 0; }
         return p + 0.25;
       });
     }, 250);
-
-    return () => {
-      if (simTimerRef.current) clearInterval(simTimerRef.current);
-    };
+    return () => { if (simTimerRef.current) clearInterval(simTimerRef.current); };
   }, [isPlaying, track.duration, isRealAudio]);
 
-  // Sync play/pause with real audio
+  /* ── Play / pause sync ────────────────────────── */
   useEffect(() => {
     if (!audioRef.current || !isRealAudio) return;
-    if (isPlaying) {
-      audioRef.current.play().catch(() => {});
-    } else {
-      audioRef.current.pause();
-    }
+    isPlaying ? audioRef.current.play().catch(() => {}) : audioRef.current.pause();
   }, [isPlaying, isRealAudio]);
 
-  // Sync volume
+  /* ── Volume sync ──────────────────────────────── */
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume / 100;
-  }, [volume]);
+    if (audioRef.current) audioRef.current.volume = effectiveVol / 100;
+  }, [effectiveVol]);
 
-  // Auto-scroll playlist to current track
+  /* ── Auto-scroll playlist ─────────────────────── */
   useEffect(() => {
     const el = trackItemsRef.current[currentTrack];
-    if (el && showPlaylist) {
-      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
+    if (el && showPlaylist) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [currentTrack, showPlaylist]);
 
-  const skip = useCallback(
-    (dir: 1 | -1) => {
-      setTransitioning(true);
-      setTimeout(() => {
-        setCurrentTrack((c) => {
-          if (shuffle) {
-            let next = c;
-            while (next === c && tracks.length > 1) {
-              next = Math.floor(Math.random() * tracks.length);
-            }
-            return next;
-          }
-          return (c + dir + tracks.length) % tracks.length;
-        });
-        setProgress(0);
-        setIsPlaying(true);
-        setTimeout(() => setTransitioning(false), 50);
-      }, 180);
-    },
-    [tracks.length, shuffle]
-  );
-
-  // Progress bar seeking — supports click and drag
-  const seekTo = useCallback(
-    (clientX: number) => {
-      const bar = progressBarRef.current;
-      if (!bar) return;
-      const rect = bar.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      const newTime = ratio * track.duration;
-      setProgress(newTime);
-      if (audioRef.current && isRealAudio) {
-        audioRef.current.currentTime = newTime;
+  /* ── Keyboard controls ────────────────────────── */
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      switch (e.code) {
+        case "Space":        e.preventDefault(); setIsPlaying(p => !p); break;
+        case "ArrowRight":   e.preventDefault(); skip(1);               break;
+        case "ArrowLeft":    e.preventDefault(); skip(-1);              break;
+        case "ArrowUp":      e.preventDefault(); setVolume(v => Math.min(100, v + 5)); break;
+        case "ArrowDown":    e.preventDefault(); setVolume(v => Math.max(0,   v - 5)); break;
+        case "KeyM":         setMuted(m => !m);                         break;
+        case "KeyL":         setLiked(l => !l);                         break;
+        case "KeyS":         setShuffle(s => !s);                       break;
+        case "KeyR":         setRepeat(r => !r);                        break;
       }
-    },
-    [track.duration, isRealAudio]
-  );
+    };
+    window.addEventListener("keydown", handle);
+    return () => window.removeEventListener("keydown", handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleProgressMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  /* ── Skip ─────────────────────────────────────── */
+  const skip = useCallback((dir: 1 | -1) => {
+    setTransitioning(true);
+    setTimeout(() => {
+      setCurrentTrack(c => {
+        if (shuffle) {
+          let n = c;
+          while (n === c && tracks.length > 1) n = Math.floor(Math.random() * tracks.length);
+          return n;
+        }
+        return (c + dir + tracks.length) % tracks.length;
+      });
+      setProgress(0);
+      setIsPlaying(true);
+      setTrackKey(k => k + 1);
+      setTimeout(() => setTransitioning(false), 60);
+    }, 200);
+  }, [tracks.length, shuffle]);
+
+  /* ── Progress seeking ─────────────────────────── */
+  const seekTo = useCallback((clientX: number) => {
+    const bar = progressBarRef.current;
+    if (!bar) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const t = ratio * track.duration;
+    setProgress(t);
+    if (audioRef.current && isRealAudio) audioRef.current.currentTime = t;
+  }, [track.duration, isRealAudio]);
+
+  const onProgressDown = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     setIsDragging(true);
-    seekTo(e.clientX);
-
-    const onMouseMove = (ev: MouseEvent) => seekTo(ev.clientX);
-    const onMouseUp = () => {
+    const cx = "touches" in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    seekTo(cx);
+    const move = (ev: MouseEvent | TouchEvent) =>
+      seekTo("touches" in ev ? ev.touches[0].clientX : (ev as MouseEvent).clientX);
+    const up = () => {
       setIsDragging(false);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("mousemove", move as EventListener);
+      window.removeEventListener("touchmove", move as EventListener);
+      window.removeEventListener("mouseup", up);
+      window.removeEventListener("touchend", up);
     };
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("mousemove", move as EventListener);
+    window.addEventListener("touchmove", move as EventListener);
+    window.addEventListener("mouseup", up);
+    window.addEventListener("touchend", up);
   };
 
-  const handleProgressTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    setIsDragging(true);
-    seekTo(e.touches[0].clientX);
-
-    const onTouchMove = (ev: TouchEvent) => seekTo(ev.touches[0].clientX);
-    const onTouchEnd = () => {
-      setIsDragging(false);
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", onTouchEnd);
-    };
-    window.addEventListener("touchmove", onTouchMove);
-    window.addEventListener("touchend", onTouchEnd);
-  };
-
-  const handleVolumeClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  /* ── Volume seeking ───────────────────────────── */
+  const seekVol = useCallback((clientX: number) => {
+    const bar = volumeBarRef.current;
+    if (!bar) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     setVolume(Math.round(ratio * 100));
+    setMuted(false);
+  }, []);
+
+  const onVolumeDown = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    setIsVolDragging(true);
+    const cx = "touches" in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    seekVol(cx);
+    const move = (ev: MouseEvent | TouchEvent) =>
+      seekVol("touches" in ev ? ev.touches[0].clientX : (ev as MouseEvent).clientX);
+    const up = () => {
+      setIsVolDragging(false);
+      window.removeEventListener("mousemove", move as EventListener);
+      window.removeEventListener("touchmove", move as EventListener);
+      window.removeEventListener("mouseup", up);
+      window.removeEventListener("touchend", up);
+    };
+    window.addEventListener("mousemove", move as EventListener);
+    window.addEventListener("touchmove", move as EventListener);
+    window.addEventListener("mouseup", up);
+    window.addEventListener("touchend", up);
   };
 
+  /* ── File upload ──────────────────────────────── */
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    const newTracks: Track[] = Array.from(files).map((file) => ({
-      title: cleanFileName(file.name),
+    const newTracks: Track[] = Array.from(files).map(f => ({
+      title: cleanFileName(f.name),
       artist: "Local File",
       duration: 0,
-      file,
-      url: URL.createObjectURL(file),
+      file: f,
+      url: URL.createObjectURL(f),
     }));
-    setTracks((prev) => [...prev, ...newTracks]);
+    setTracks(prev => [...prev, ...newTracks]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const playTrack = (index: number) => {
-    if (index === currentTrack) {
-      setIsPlaying(!isPlaying);
-      return;
-    }
+  /* ── Play track from playlist ─────────────────── */
+  const playTrack = (idx: number) => {
+    if (idx === currentTrack) { setIsPlaying(p => !p); return; }
     setTransitioning(true);
     setTimeout(() => {
-      setCurrentTrack(index);
+      setCurrentTrack(idx);
       setProgress(0);
       setIsPlaying(true);
-      setTimeout(() => setTransitioning(false), 50);
-    }, 180);
+      setTrackKey(k => k + 1);
+      setTimeout(() => setTransitioning(false), 60);
+    }, 200);
   };
 
-  const removeTrack = (index: number, e: React.MouseEvent) => {
+  /* ── Remove track ─────────────────────────────── */
+  const removeTrack = (idx: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (tracks[index].url) URL.revokeObjectURL(tracks[index].url!);
-    setTracks((prev) => prev.filter((_, i) => i !== index));
-    if (index === currentTrack) {
-      setCurrentTrack(0);
-      setProgress(0);
-      setIsPlaying(false);
-    } else if (index < currentTrack) {
-      setCurrentTrack((c) => c - 1);
-    }
+    if (tracks[idx].url) URL.revokeObjectURL(tracks[idx].url!);
+    setTracks(prev => prev.filter((_, i) => i !== idx));
+    if (idx === currentTrack) { setCurrentTrack(0); setProgress(0); setIsPlaying(false); }
+    else if (idx < currentTrack) setCurrentTrack(c => c - 1);
   };
 
-  useEffect(() => {
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      if (simTimerRef.current) clearInterval(simTimerRef.current);
-    };
+  /* ── Cleanup ──────────────────────────────────── */
+  useEffect(() => () => {
+    if (simTimerRef.current) clearInterval(simTimerRef.current);
   }, []);
 
-  const progressPercent = track.duration > 0 ? (progress / track.duration) * 100 : 0;
-
+  /* ══════════════════════════════════════════════════
+     RENDER
+  ══════════════════════════════════════════════════ */
   return (
     <>
-      {/* ── Main player ── */}
-      <div
-        ref={mainPlayerRef}
-        className="player-gradient flex min-h-[100dvh] items-start justify-center px-5 pt-10 pb-28"
-      >
-        <div className="flex w-full max-w-[400px] flex-col items-center gap-0">
+      {/* ─── Ambient background ─────────────────── */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
+        <div
+          className="absolute -top-32 -left-32 h-[500px] w-[500px] rounded-full opacity-[0.12] blur-[100px] animate-orb-1"
+          style={{ background: "radial-gradient(circle, hsl(142 70% 45%), transparent 70%)" }}
+        />
+        <div
+          className="absolute -bottom-40 -right-20 h-[420px] w-[420px] rounded-full opacity-[0.09] blur-[90px] animate-orb-2"
+          style={{ background: "radial-gradient(circle, hsl(142 60% 40%), transparent 70%)" }}
+        />
+      </div>
 
-          {/* ── Player card ── */}
+      {/* ─── Main layout ────────────────────────── */}
+      <div className="player-bg relative flex min-h-[100dvh] flex-col items-center justify-start px-4 pt-8 pb-28 sm:pt-12">
+        <div className="w-full max-w-[420px]">
+
+          {/* ── Header ────────────────────────── */}
           <div
-            className={`flex w-full flex-col items-center gap-6 transition-all duration-300 ${
-              transitioning ? "opacity-0 scale-[0.98]" : "opacity-100 scale-100"
-            }`}
+            ref={heroRef}
+            className="flex items-center justify-between mb-6 opacity-0 animate-fade-up"
+            style={{ animationDelay: "0.05s" }}
           >
-            {/* Header */}
-            <div
-              className="flex w-full items-center justify-between opacity-0 animate-fade-up"
-              style={{ animationDelay: "0.05s" }}
-            >
-              <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                Now Playing
-              </span>
-              <span className="text-[13px] font-semibold tracking-tight text-foreground/70">
-                MAXI
-              </span>
-            </div>
+            <span className="text-[10px] font-medium uppercase tracking-[0.25em] text-muted-foreground/70">
+              Now Playing
+            </span>
+            <span className="text-[13px] font-bold tracking-widest text-foreground/50 select-none">
+              MAXI
+            </span>
+          </div>
 
-            {/* Album Art */}
+          {/* ── Album Art ─────────────────────── */}
+          <div
+            key={trackKey}
+            className="mb-6 opacity-0 animate-scale-in w-full"
+            style={{ animationDelay: "0.08s" }}
+          >
             <div
-              className="opacity-0 animate-fade-up w-full"
-              style={{ animationDelay: "0.12s" }}
+              className={`relative aspect-square w-full overflow-hidden rounded-2xl transition-all duration-700 ease-out ${
+                isPlaying
+                  ? "animate-album-breathe"
+                  : "shadow-[0_16px_64px_rgba(0,0,0,0.65)]"
+              }`}
             >
-              <div
-                className={`aspect-square w-full overflow-hidden rounded-2xl shadow-[0_12px_48px_rgba(0,0,0,0.6)] transition-transform duration-700 ease-out ${
-                  isPlaying ? "scale-[1.012]" : "scale-100"
+              <img
+                src={albumCover}
+                alt="Album artwork"
+                className={`h-full w-full object-cover transition-all duration-700 ${
+                  transitioning ? "scale-[1.04] opacity-0 blur-sm" : "scale-100 opacity-100 blur-0"
                 }`}
-              >
-                <img
-                  src={albumCover}
-                  alt="Album artwork"
-                  className="h-full w-full object-cover"
-                  draggable={false}
-                />
-              </div>
-            </div>
-
-            {/* Track Info + Like */}
-            <div
-              className="flex w-full items-center justify-between gap-3 opacity-0 animate-fade-up"
-              style={{ animationDelay: "0.2s" }}
-            >
-              <div className="min-w-0">
-                <h1 className="truncate text-[17px] font-semibold leading-snug text-foreground tracking-[-0.02em]">
-                  {track.title}
-                </h1>
-                <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
-                  {track.artist}
-                </p>
-              </div>
-              <button
-                onClick={() => setLiked(!liked)}
-                className="flex-shrink-0 p-1 transition-all duration-200 active:scale-90"
-                aria-label="Like"
-                data-testid="button-like"
-              >
-                <Heart
-                  size={20}
-                  className={`transition-colors duration-200 ${
-                    liked
-                      ? "fill-primary text-primary"
-                      : "text-muted-foreground hover:text-foreground/60"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Progress Bar */}
-            <div
-              className="w-full space-y-2 opacity-0 animate-fade-up"
-              style={{ animationDelay: "0.26s" }}
-            >
-              <div
-                ref={progressBarRef}
-                className="group relative h-1 w-full cursor-pointer rounded-full bg-progress-bg"
-                onMouseDown={handleProgressMouseDown}
-                onTouchStart={handleProgressTouchStart}
-                data-testid="progress-bar"
-                style={{ touchAction: "none" }}
-              >
-                {/* Expanded hit area */}
-                <div className="absolute -inset-y-2 inset-x-0" />
-
-                {/* Fill */}
-                <div
-                  className="absolute left-0 top-0 h-full rounded-full bg-progress-fill"
-                  style={{
-                    width: `${progressPercent}%`,
-                    transition: isDragging || isRealAudio ? "none" : "width 0.25s linear",
-                  }}
-                />
-
-                {/* Thumb — always visible when dragging, hover otherwise */}
-                <div
-                  className={`absolute top-1/2 h-3 w-3 rounded-full bg-foreground shadow-sm transition-all duration-150 ${
-                    isDragging ? "opacity-100 scale-110" : "opacity-0 group-hover:opacity-100"
-                  }`}
-                  style={{
-                    left: `${progressPercent}%`,
-                    transform: "translateX(-50%) translateY(-50%)",
-                    pointerEvents: "none",
-                  }}
-                />
-              </div>
-              <div className="flex justify-between text-[11px] tabular-nums text-muted-foreground/60">
-                <span>{formatTime(progress)}</span>
-                <span>{track.duration > 0 ? formatTime(track.duration) : "--:--"}</span>
-              </div>
-            </div>
-
-            {/* Controls */}
-            <div
-              className="flex w-full items-center justify-between px-1 opacity-0 animate-fade-up"
-              style={{ animationDelay: "0.32s" }}
-            >
-              <button
-                onClick={() => setShuffle(!shuffle)}
-                className={`p-2 transition-colors duration-200 active:scale-90 rounded-full ${
-                  shuffle
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground/60"
-                }`}
-                aria-label="Shuffle"
-                data-testid="button-shuffle"
-              >
-                <Shuffle size={17} />
-              </button>
-
-              <button
-                onClick={() => skip(-1)}
-                className="p-2 text-foreground/80 transition-all duration-150 hover:text-foreground active:scale-90 rounded-full"
-                aria-label="Previous"
-                data-testid="button-prev"
-              >
-                <SkipBack size={24} fill="currentColor" />
-              </button>
-
-              <button
-                onClick={() => setIsPlaying(!isPlaying)}
-                className="flex h-13 w-13 items-center justify-center rounded-full bg-foreground shadow-md transition-all duration-150 hover:bg-white/90 active:scale-95"
-                style={{ width: 52, height: 52 }}
-                aria-label={isPlaying ? "Pause" : "Play"}
-                data-testid="button-play-pause"
-              >
-                {isPlaying ? (
-                  <Pause size={22} className="text-background" fill="currentColor" />
-                ) : (
-                  <Play size={22} className="ml-0.5 text-background" fill="currentColor" />
-                )}
-              </button>
-
-              <button
-                onClick={() => skip(1)}
-                className="p-2 text-foreground/80 transition-all duration-150 hover:text-foreground active:scale-90 rounded-full"
-                aria-label="Next"
-                data-testid="button-next"
-              >
-                <SkipForward size={24} fill="currentColor" />
-              </button>
-
-              <button
-                onClick={() => setRepeat(!repeat)}
-                className={`p-2 transition-colors duration-200 active:scale-90 rounded-full ${
-                  repeat
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground/60"
-                }`}
-                aria-label="Repeat"
-                data-testid="button-repeat"
-              >
-                <Repeat size={17} />
-              </button>
-            </div>
-
-            {/* Volume */}
-            <div
-              className="flex w-full items-center gap-2.5 opacity-0 animate-fade-up"
-              style={{ animationDelay: "0.37s" }}
-            >
-              <Volume2 size={13} className="flex-shrink-0 text-muted-foreground/50" />
-              <div
-                className="group relative h-[3px] flex-1 cursor-pointer rounded-full bg-progress-bg transition-[height] duration-150 hover:h-[5px]"
-                onClick={handleVolumeClick}
-                data-testid="volume-bar"
-              >
-                <div
-                  className="h-full rounded-full bg-muted-foreground/40 transition-colors duration-200 group-hover:bg-foreground/50"
-                  style={{ width: `${volume}%` }}
-                />
-              </div>
-              <span className="w-6 text-right text-[10px] tabular-nums text-muted-foreground/40">
-                {volume}
-              </span>
+                draggable={false}
+              />
+              {/* Playing overlay shimmer */}
+              {isPlaying && (
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
+              )}
             </div>
           </div>
 
-          {/* ── Playlist ── */}
+          {/* ── Track Info + Like ──────────────── */}
           <div
-            className="mt-8 w-full opacity-0 animate-fade-up"
-            style={{ animationDelay: "0.42s" }}
+            key={`info-${trackKey}`}
+            className={`flex items-center justify-between gap-3 mb-5 transition-all duration-300 ${
+              transitioning ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
+            }`}
           >
+            <div className="min-w-0">
+              <h1 className="truncate text-[19px] font-semibold leading-tight text-foreground tracking-[-0.025em]">
+                {track.title}
+              </h1>
+              <p className="mt-1 truncate text-[13px] font-medium text-muted-foreground/70">
+                {track.artist}
+              </p>
+            </div>
+            <button
+              onClick={() => setLiked(l => !l)}
+              className="group flex-shrink-0 p-2 rounded-full transition-all duration-200 active:scale-85"
+              aria-label="Like"
+              data-testid="button-like"
+            >
+              <Heart
+                size={20}
+                className={`transition-all duration-300 ${
+                  liked
+                    ? "fill-primary text-primary scale-110"
+                    : "text-muted-foreground/50 group-hover:text-foreground/50 group-hover:scale-110"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* ── Progress Bar ──────────────────── */}
+          <div className="mb-5">
+            <div
+              ref={progressBarRef}
+              className="group relative cursor-pointer rounded-full bg-[hsl(var(--progress-bg))] touch-none"
+              style={{
+                height: isDragging ? 5 : undefined,
+                transition: "height 0.15s ease",
+              }}
+              onMouseDown={onProgressDown}
+              onTouchStart={onProgressDown}
+              data-testid="progress-bar"
+            >
+              {/* Invisible expanded hit area */}
+              <div className="absolute -inset-y-3 inset-x-0 z-10" />
+
+              {/* Track background */}
+              <div className="h-[4px] w-full rounded-full bg-[hsl(var(--progress-bg))] group-hover:h-[5px] transition-all duration-150 overflow-hidden">
+                {/* Fill */}
+                <div
+                  className="h-full rounded-full progress-fill-gradient"
+                  style={{
+                    width: `${progressPct}%`,
+                    transition: isDragging || isRealAudio ? "none" : "width 0.25s linear",
+                  }}
+                />
+              </div>
+
+              {/* Thumb */}
+              <div
+                className={`absolute top-1/2 z-20 h-[13px] w-[13px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-lg transition-all duration-150 ${
+                  isDragging
+                    ? "opacity-100 scale-110"
+                    : "opacity-0 group-hover:opacity-100 group-hover:scale-100"
+                }`}
+                style={{ left: `${progressPct}%`, pointerEvents: "none" }}
+              />
+            </div>
+
+            <div className="mt-2 flex justify-between text-[11px] tabular-nums font-medium text-muted-foreground/50">
+              <span>{fmt(progress)}</span>
+              <span>{track.duration > 0 ? fmt(track.duration) : "--:--"}</span>
+            </div>
+          </div>
+
+          {/* ── Controls ──────────────────────── */}
+          <div className="flex w-full items-center justify-between mb-5 px-1">
+            {/* Shuffle */}
+            <button
+              onClick={() => setShuffle(s => !s)}
+              className={`relative p-2 rounded-full transition-all duration-200 active:scale-85 ${
+                shuffle ? "text-primary" : "text-muted-foreground/50 hover:text-foreground/60"
+              }`}
+              aria-label="Shuffle"
+              data-testid="button-shuffle"
+            >
+              <Shuffle size={17} />
+              {shuffle && (
+                <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary" />
+              )}
+            </button>
+
+            {/* Previous */}
+            <button
+              onClick={() => skip(-1)}
+              className="p-2.5 text-foreground/70 transition-all duration-150 hover:text-foreground hover:scale-110 active:scale-90 rounded-full"
+              aria-label="Previous"
+              data-testid="button-prev"
+            >
+              <SkipBack size={26} fill="currentColor" />
+            </button>
+
+            {/* Play / Pause */}
+            <button
+              onClick={() => setIsPlaying(p => !p)}
+              className={`relative flex items-center justify-center rounded-full bg-white transition-all duration-200 hover:scale-105 active:scale-95 ${
+                isPlaying ? "animate-pulse-ring" : ""
+              }`}
+              style={{ width: 60, height: 60, boxShadow: "0 4px 24px rgba(0,0,0,0.4)" }}
+              aria-label={isPlaying ? "Pause" : "Play"}
+              data-testid="button-play-pause"
+            >
+              <span
+                className="transition-all duration-200"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                {isPlaying
+                  ? <Pause size={24} className="text-black" fill="black" />
+                  : <Play  size={24} className="text-black ml-0.5" fill="black" />
+                }
+              </span>
+            </button>
+
+            {/* Next */}
+            <button
+              onClick={() => skip(1)}
+              className="p-2.5 text-foreground/70 transition-all duration-150 hover:text-foreground hover:scale-110 active:scale-90 rounded-full"
+              aria-label="Next"
+              data-testid="button-next"
+            >
+              <SkipForward size={26} fill="currentColor" />
+            </button>
+
+            {/* Repeat */}
+            <button
+              onClick={() => setRepeat(r => !r)}
+              className={`relative p-2 rounded-full transition-all duration-200 active:scale-85 ${
+                repeat ? "text-primary" : "text-muted-foreground/50 hover:text-foreground/60"
+              }`}
+              aria-label="Repeat"
+              data-testid="button-repeat"
+            >
+              <Repeat size={17} />
+              {repeat && (
+                <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary" />
+              )}
+            </button>
+          </div>
+
+          {/* ── Volume ────────────────────────── */}
+          <div className="flex items-center gap-3 mb-8">
+            <button
+              onClick={() => setMuted(m => !m)}
+              className="flex-shrink-0 text-muted-foreground/50 hover:text-foreground/60 transition-colors duration-150 active:scale-90"
+              aria-label={muted ? "Unmute" : "Mute"}
+              data-testid="button-mute"
+            >
+              {muted || volume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            </button>
+
+            <div
+              ref={volumeBarRef}
+              className="group relative flex-1 cursor-pointer touch-none"
+              onMouseDown={onVolumeDown}
+              onTouchStart={onVolumeDown}
+              data-testid="volume-bar"
+            >
+              <div className="absolute -inset-y-3 inset-x-0" />
+              <div className="h-[3px] w-full rounded-full bg-[hsl(var(--progress-bg))] group-hover:h-[4px] transition-all duration-150 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-muted-foreground/40 group-hover:bg-foreground/50 transition-colors duration-150"
+                  style={{ width: `${effectiveVol}%` }}
+                />
+              </div>
+              {/* Thumb */}
+              <div
+                className={`absolute top-1/2 h-[10px] w-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white transition-opacity duration-150 ${
+                  isVolDragging ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                }`}
+                style={{ left: `${effectiveVol}%`, pointerEvents: "none" }}
+              />
+            </div>
+
+            <span className="w-7 flex-shrink-0 text-right text-[11px] tabular-nums font-medium text-muted-foreground/40">
+              {effectiveVol}
+            </span>
+          </div>
+
+          {/* ── Playlist ──────────────────────── */}
+          <div>
             {/* Playlist header */}
-            <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center justify-between mb-3">
               <button
-                onClick={() => setShowPlaylist(!showPlaylist)}
-                className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground transition-colors duration-200 hover:text-foreground/60"
+                onClick={() => setShowPlaylist(s => !s)}
+                className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60 hover:text-foreground/60 transition-colors duration-200"
                 data-testid="button-toggle-playlist"
               >
-                <ChevronUp
-                  size={13}
-                  className={`transition-transform duration-300 ${
-                    showPlaylist ? "rotate-0" : "rotate-180"
-                  }`}
+                <ListMusic size={13} />
+                Playlist
+                <span className="ml-0.5 text-muted-foreground/40">· {tracks.length}</span>
+                <ChevronDown
+                  size={12}
+                  className={`transition-transform duration-300 ${showPlaylist ? "rotate-180" : "rotate-0"}`}
                 />
-                Playlist · {tracks.length}
               </button>
+
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-[11px] font-medium text-foreground/70 transition-all duration-200 hover:bg-white/8 hover:text-foreground/90 active:scale-95"
+                className="flex items-center gap-1.5 rounded-full glass px-3.5 py-1.5 text-[11px] font-medium text-foreground/60 transition-all duration-200 hover:text-foreground/90 hover:bg-white/8 active:scale-95"
                 data-testid="button-add-songs"
               >
                 <Plus size={12} />
@@ -542,158 +588,150 @@ const MusicPlayer = () => {
 
             {/* Track list */}
             <div
-              className={`overflow-hidden transition-all duration-300 ease-out ${
-                showPlaylist ? "max-h-[320px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
+              className={`overflow-hidden transition-all duration-400 ease-out ${
+                showPlaylist ? "max-h-[340px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
               }`}
+              style={{ transition: "max-height 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease" }}
             >
-              <div
-                ref={playlistRef}
-                className="max-h-[300px] overflow-y-auto space-y-0.5 pr-0.5"
-                style={{ scrollbarWidth: "none" }}
-              >
+              <div ref={playlistRef} className="playlist-scroll max-h-[320px] overflow-y-auto space-y-[2px] pb-1">
                 {tracks.map((t, i) => (
-                  <button
+                  <div
                     key={`${t.title}-${i}`}
-                    ref={(el) => { trackItemsRef.current[i] = el; }}
+                    ref={el => { trackItemsRef.current[i] = el; }}
                     onClick={() => playTrack(i)}
-                    className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-150 ${
+                    className={`group relative flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 ${
                       i === currentTrack
-                        ? "bg-white/8 text-foreground"
-                        : "text-foreground/60 hover:bg-white/4 hover:text-foreground/80"
+                        ? "track-active-bar"
+                        : "hover:bg-white/[0.035]"
                     }`}
                     data-testid={`track-item-${i}`}
                   >
-                    {/* Icon / number */}
-                    <div
-                      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[11px] font-medium tabular-nums transition-colors duration-150 ${
-                        i === currentTrack
-                          ? "bg-primary/20 text-primary"
-                          : "bg-secondary/60 text-muted-foreground group-hover:bg-secondary"
-                      }`}
-                    >
+                    {/* Index / EQ */}
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/5">
                       {i === currentTrack && isPlaying ? (
-                        <Pause size={12} fill="currentColor" />
+                        <EqBars />
                       ) : i === currentTrack ? (
-                        <Play size={12} fill="currentColor" />
+                        <Play size={11} className="text-primary ml-0.5" fill="currentColor" />
                       ) : (
-                        <Music size={12} />
+                        <span className="text-[11px] font-medium tabular-nums text-muted-foreground/40 group-hover:hidden">
+                          {i + 1}
+                        </span>
+                      )}
+                      {i !== currentTrack && (
+                        <Play size={11} className="text-foreground/50 ml-0.5 hidden group-hover:block" fill="currentColor" />
                       )}
                     </div>
 
-                    {/* Title + artist */}
+                    {/* Title + Artist */}
                     <div className="min-w-0 flex-1">
-                      <p
-                        className={`truncate text-[13px] font-medium leading-tight ${
-                          i === currentTrack ? "text-primary" : ""
-                        }`}
-                      >
+                      <p className={`truncate text-[13px] font-medium leading-tight ${
+                        i === currentTrack ? "text-primary" : "text-foreground/80 group-hover:text-foreground"
+                      } transition-colors duration-150`}>
                         {t.title}
                       </p>
-                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground/70">
+                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground/50">
                         {t.artist}
                       </p>
                     </div>
 
                     {/* Duration */}
-                    <span className="flex-shrink-0 text-[11px] tabular-nums text-muted-foreground/50">
-                      {t.duration > 0 ? formatTime(t.duration) : "--:--"}
+                    <span className="flex-shrink-0 text-[11px] tabular-nums text-muted-foreground/40">
+                      {t.duration > 0 ? fmt(t.duration) : "--:--"}
                     </span>
 
-                    {/* Remove (only for uploaded files) */}
+                    {/* Remove button */}
                     {t.url && (
                       <button
-                        onClick={(e) => removeTrack(i, e)}
-                        className="ml-1 flex-shrink-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 text-muted-foreground/50 hover:text-foreground/60"
-                        aria-label="Remove track"
-                        data-testid={`button-remove-track-${i}`}
+                        onClick={e => removeTrack(i, e)}
+                        className="ml-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-muted-foreground/40 hover:text-foreground/60 active:scale-90"
+                        aria-label="Remove"
+                        data-testid={`button-remove-${i}`}
                       >
                         <X size={13} />
                       </button>
                     )}
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
           </div>
+
+          {/* ── Keyboard hint ─────────────────── */}
+          <p className="mt-5 text-center text-[10px] text-muted-foreground/25 select-none">
+            Space · ← → · ↑ ↓ volume · M mute · L like
+          </p>
         </div>
       </div>
 
-      {/* ── Mini Player ── */}
+      {/* ─── Mini Player ────────────────────────── */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 transition-all duration-300 ease-out ${
-          miniPlayerVisible
-            ? "translate-y-0 opacity-100"
-            : "translate-y-full opacity-0 pointer-events-none"
+        className={`fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 transition-all duration-300 ${
+          miniVisible ? "translate-y-0 opacity-100" : "translate-y-[110%] opacity-0 pointer-events-none"
         }`}
       >
-        <div className="mx-auto max-w-lg px-3 pb-3">
-          <div className="flex items-center gap-3 rounded-2xl bg-[hsl(0_0%_13%)] px-4 py-3 shadow-[0_-4px_32px_rgba(0,0,0,0.5)] border border-white/6 backdrop-blur-md">
-            {/* Mini album art */}
-            <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg shadow-md">
-              <img
-                src={albumCover}
-                alt="Album artwork"
-                className="h-full w-full object-cover"
-                draggable={false}
-              />
+        <div className="glass-strong mx-auto max-w-lg rounded-2xl px-4 py-3 shadow-[0_-8px_40px_rgba(0,0,0,0.6)]">
+          {/* Mini progress bar (top edge) */}
+          <div className="absolute top-0 left-4 right-4 h-[2px] rounded-full overflow-hidden bg-white/10">
+            <div
+              className="h-full progress-fill-gradient"
+              style={{
+                width: `${progressPct}%`,
+                transition: isDragging || isRealAudio ? "none" : "width 0.25s linear",
+              }}
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Album thumb */}
+            <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-xl shadow-lg">
+              <img src={albumCover} alt="" className="h-full w-full object-cover" draggable={false} />
             </div>
 
-            {/* Track info */}
+            {/* Info */}
             <div className="min-w-0 flex-1">
-              <p
-                className={`truncate text-[13px] font-semibold leading-tight transition-all duration-300 ${
-                  transitioning ? "opacity-0" : "opacity-100"
-                }`}
-              >
+              <p className={`truncate text-[13px] font-semibold leading-tight transition-opacity duration-200 ${transitioning ? "opacity-0" : "opacity-100"}`}>
                 {track.title}
               </p>
-              <p className="truncate text-[11px] text-muted-foreground/70 mt-0.5">
+              <p className="truncate text-[11px] text-muted-foreground/60 mt-0.5">
                 {track.artist}
               </p>
             </div>
 
-            {/* Mini progress */}
-            <div className="hidden sm:block flex-1 max-w-[100px]">
-              <div className="h-[3px] w-full rounded-full bg-progress-bg overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-progress-fill"
-                  style={{
-                    width: `${progressPercent}%`,
-                    transition: isDragging || isRealAudio ? "none" : "width 0.25s linear",
-                  }}
-                />
-              </div>
-            </div>
-
             {/* Controls */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setLiked(l => !l)}
+                className="p-2 transition-all duration-150 active:scale-85"
+                aria-label="Like"
+              >
+                <Heart size={15} className={liked ? "fill-primary text-primary" : "text-muted-foreground/50"} />
+              </button>
               <button
                 onClick={() => skip(-1)}
-                className="p-1.5 text-foreground/60 transition-colors hover:text-foreground active:scale-90"
+                className="p-2 text-foreground/60 hover:text-foreground transition-colors active:scale-90"
                 aria-label="Previous"
                 data-testid="mini-button-prev"
               >
-                <SkipBack size={16} fill="currentColor" />
+                <SkipBack size={17} fill="currentColor" />
               </button>
               <button
-                onClick={() => setIsPlaying(!isPlaying)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground transition-all duration-150 hover:bg-white/90 active:scale-95"
+                onClick={() => setIsPlaying(p => !p)}
+                className="mx-1 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md transition-all duration-150 hover:scale-105 active:scale-95"
                 aria-label={isPlaying ? "Pause" : "Play"}
                 data-testid="mini-button-play-pause"
               >
-                {isPlaying ? (
-                  <Pause size={14} className="text-background" fill="currentColor" />
-                ) : (
-                  <Play size={14} className="ml-0.5 text-background" fill="currentColor" />
-                )}
+                {isPlaying
+                  ? <Pause size={15} fill="black" className="text-black" />
+                  : <Play  size={15} fill="black" className="text-black ml-0.5" />
+                }
               </button>
               <button
                 onClick={() => skip(1)}
-                className="p-1.5 text-foreground/60 transition-colors hover:text-foreground active:scale-90"
+                className="p-2 text-foreground/60 hover:text-foreground transition-colors active:scale-90"
                 aria-label="Next"
                 data-testid="mini-button-next"
               >
-                <SkipForward size={16} fill="currentColor" />
+                <SkipForward size={17} fill="currentColor" />
               </button>
             </div>
           </div>

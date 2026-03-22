@@ -1,0 +1,63 @@
+Upgrade my MAXI music player into an ULTRA PREMIUM, production-level UI/UX application.
+
+GOAL:
+Create a highly polished, modern, minimal, and smooth music player experience inspired by top-tier apps like Spotify, Apple Music, etc., but with a more aesthetic and unique feel.
+
+DESIGN SYSTEM:
+- Use a dark, elegant theme with soft gradients
+- Apply glassmorphism (blurred panels, translucent UI elements)
+- Use consistent spacing and alignment (grid-based layout)
+- Add subtle shadows and depth
+- Use modern typography (Inter/Poppins)
+- Use a limited color palette with a primary accent color
+
+ANIMATIONS & MICRO-INTERACTIONS:
+- Add smooth page transitions and fade effects
+- Animate play/pause button (morphing icon animation)
+- Add smooth song switching (fade + slide effect)
+- Add hover micro-interactions (scale, glow, color shift)
+- Add loading skeletons when switching songs
+- Animate playlist item selection with smooth highlight
+
+PLAYER EXPERIENCE:
+- Create a sleek central player card
+- Add large progress bar with smooth dragging
+- Show waveform or animated progress effect
+- Add volume control slider with smooth animation
+- Add next/previous with fluid transitions
+- Auto-play next song seamlessly
+
+PLAYLIST UI:
+- Scrollable playlist with custom styled scrollbar
+- Highlight current song with glow or gradient border
+- Add hover preview effects
+- Smooth scroll behavior
+
+MINI PLAYER:
+- Add a persistent mini player at the bottom
+- Show song info + animated controls
+- Sync perfectly with main player
+- Smooth expand/collapse animation
+
+INTERACTIONS:
+- Every button should have feedback (hover + click animation)
+- No abrupt UI changes — everything must feel fluid
+- Use easing curves for animations (ease-in-out, spring-like)
+
+ADVANCED TOUCH:
+- Add keyboard controls (space = play/pause, arrows = next/prev)
+- Add responsive design (mobile + desktop)
+- Add subtle background effects (gradient or blur movement)
+
+PERFORMANCE:
+- Ensure smooth animations without lag
+- Optimize DOM updates
+- Keep code clean and modular
+
+CONSTRAINTS:
+- Keep everything in a single HTML file
+- Do not break existing functionality
+- Enhance and upgrade the current code, not rewrite randomly
+
+RESULT:
+Transform MAXI into an ultra premium, polished, high-end music player with a “wow” factor that feels like a real product.
