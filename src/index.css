@@ -67,8 +67,17 @@
   .player-gradient {
     background: linear-gradient(
       180deg,
-      hsl(141 30% 12%) 0%,
-      hsl(0 0% 7%) 60%
+      hsl(141 30% 11%) 0%,
+      hsl(0 0% 7%) 55%
     );
+  }
+
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
