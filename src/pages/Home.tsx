@@ -83,7 +83,7 @@ const Home = () => {
       </div>
 
       {/* ── Now Playing Card ─────────────────── */}
-      <div className="glass rounded-3xl overflow-hidden">
+      <div className="glass rounded-3xl overflow-hidden card-glow-playing">
         {/* Album art */}
         <div key={trackKey} className="relative w-full">
           <img
@@ -165,13 +165,13 @@ const Home = () => {
 
             <button
               onClick={() => setIsPlaying(p => !p)}
-              className={`flex items-center justify-center rounded-full bg-white shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 ${isPlaying ? "animate-pulse-ring" : ""}`}
+              className={`flex items-center justify-center rounded-full btn-gradient shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 ${isPlaying ? "animate-pulse-ring" : ""}`}
               style={{ width: 58, height: 58 }}
               aria-label={isPlaying ? "Pause" : "Play"}
             >
               {isPlaying
-                ? <Pause size={22} fill="black" className="text-black" />
-                : <Play  size={22} fill="black" className="text-black ml-0.5" />
+                ? <Pause size={22} fill="white" className="text-white" />
+                : <Play  size={22} fill="white" className="text-white ml-0.5" />
               }
             </button>
 

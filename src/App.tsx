@@ -45,12 +45,12 @@ const AppShell = () => (
     {/* Ambient background orbs */}
     <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
       <div
-        className="absolute -top-32 -left-32 h-[500px] w-[500px] rounded-full opacity-[0.12] blur-[100px] animate-orb-1"
-        style={{ background: "radial-gradient(circle, hsl(142 70% 45%), transparent 70%)" }}
+        className="absolute -top-32 -left-32 h-[520px] w-[520px] rounded-full opacity-[0.18] blur-[110px] animate-orb-1"
+        style={{ background: "radial-gradient(circle, #FF3B3F, transparent 70%)" }}
       />
       <div
-        className="absolute -bottom-40 -right-20 h-[420px] w-[420px] rounded-full opacity-[0.09] blur-[90px] animate-orb-2"
-        style={{ background: "radial-gradient(circle, hsl(142 60% 40%), transparent 70%)" }}
+        className="absolute -bottom-40 -right-20 h-[440px] w-[440px] rounded-full opacity-[0.12] blur-[100px] animate-orb-2"
+        style={{ background: "radial-gradient(circle, #FF9500, transparent 70%)" }}
       />
     </div>
 

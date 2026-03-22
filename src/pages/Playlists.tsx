@@ -47,7 +47,7 @@ const Playlists = () => {
         </div>
         <button
           onClick={() => setCreating(true)}
-          className="flex items-center gap-1.5 rounded-full bg-primary/15 px-3.5 py-2 text-[12px] font-semibold text-primary transition-all duration-200 hover:bg-primary/25 active:scale-95"
+          className="flex items-center gap-1.5 rounded-full btn-gradient px-3.5 py-2 text-[12px] font-semibold text-white transition-all duration-200 active:scale-95"
         >
           <Plus size={14} />
           New
@@ -70,7 +70,7 @@ const Playlists = () => {
           <div className="flex gap-2 mt-3">
             <button
               onClick={handleCreate}
-              className="flex-1 rounded-xl bg-primary py-2.5 text-[13px] font-semibold text-white transition-all hover:bg-primary/90 active:scale-95"
+              className="flex-1 rounded-xl btn-gradient py-2.5 text-[13px] font-semibold text-white transition-all active:scale-95"
             >
               Create
             </button>

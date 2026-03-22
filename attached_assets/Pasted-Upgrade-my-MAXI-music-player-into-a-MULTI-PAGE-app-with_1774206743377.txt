@@ -1,0 +1,73 @@
+Upgrade my MAXI music player into a MULTI-PAGE app with a fully designed premium theme.
+
+GOAL:
+Create a professional, multi-page music app that feels like a real product with a striking black + red + orange color scheme.
+
+THEME:
+- Primary background: Black (#0D0D0D)
+- Accent colors: Red (#FF3B3F) + Orange (#FF9500)
+- Text color: White (#FFFFFF) with subtle gray (#B3B3B3) for secondary info
+- Smooth gradients between accent colors for buttons/cards
+- Glassmorphism or semi-transparent panels for playlists
+
+PAGES:
+
+1. HOME PAGE:
+- "Now Playing" card prominently at top
+- Recently played section with horizontal scroll
+- Quick action buttons (Shuffle, Favorites, Playlists)
+- Highlight current song with accent color border/glow
+
+2. SONGS PAGE:
+- List all songs
+- Show song title, artist, duration
+- Highlight currently playing song with red/orange glow
+- Add hover effect: subtle scale + shadow in accent color
+- Include search bar for filtering songs
+
+3. PLAYLIST PAGE:
+- Display all user playlists
+- Add/remove songs from playlist
+- Each playlist card with gradient accent and subtle shadow
+- Smooth scroll for long playlists
+
+4. SEARCH PAGE:
+- Search bar with black input + red/orange accent outline
+- Dynamic results appear as user types
+- Smooth hover effects with accent highlights
+
+5. SETTINGS PAGE:
+- Dark theme toggle (black/red/orange default)
+- Playback settings (repeat, shuffle, volume)
+- UI customization options
+
+NAVIGATION:
+- Bottom navigation bar fixed across all pages
+- Five tabs: Home, Songs, Playlist, Search, Settings
+- Active tab highlighted with red/orange accent
+- Smooth transition animations between pages
+
+MINI PLAYER:
+- Persistent bottom mini player across pages
+- Shows song info + play/pause + next/prev
+- Expand/collapse with smooth animation
+- Accent color highlights for buttons
+
+ANIMATIONS & UX:
+- Smooth page transitions (fade/slide)
+- Hover & click micro-interactions (scale + glow)
+- Subtle shadows and depth for cards and panels
+- Gradient highlights on buttons and active elements
+- Smooth progress bar animation with accent gradient
+
+PERFORMANCE:
+- Optimize for 60fps animations
+- Maintain smooth scrolling and interactions on all devices
+- Modular code structure (JS/CSS)
+
+CONSTRAINT:
+- Keep everything in a single HTML file
+- Preserve existing functionality while upgrading UI
+
+RESULT:
+MAXI becomes a real, ultra-premium music app with multi-page navigation, smooth animations, and a bold black + red + orange theme. Feels like a top-tier music app on both web and mobile.

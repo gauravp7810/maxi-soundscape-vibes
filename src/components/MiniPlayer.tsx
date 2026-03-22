@@ -104,12 +104,12 @@ export const MiniPlayer = ({ visible }: { visible?: boolean }) => {
             </button>
             <button
               onClick={() => setIsPlaying(p => !p)}
-              className="mx-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white shadow-md transition-all duration-150 hover:scale-105 active:scale-95"
+              className="mx-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full btn-gradient shadow-md transition-all duration-150 hover:scale-105 active:scale-95"
               aria-label={isPlaying ? "Pause" : "Play"}
             >
               {isPlaying
-                ? <Pause size={14} fill="black" className="text-black" />
-                : <Play  size={14} fill="black" className="text-black ml-[1px]" />
+                ? <Pause size={14} fill="white" className="text-white" />
+                : <Play  size={14} fill="white" className="text-white ml-[1px]" />
               }
             </button>
             <button

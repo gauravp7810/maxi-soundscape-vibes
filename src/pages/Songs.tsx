@@ -31,7 +31,7 @@ const Songs = () => {
         </div>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1.5 rounded-full bg-primary/15 px-3.5 py-2 text-[12px] font-semibold text-primary transition-all duration-200 hover:bg-primary/25 active:scale-95"
+          className="flex items-center gap-1.5 rounded-full btn-gradient px-3.5 py-2 text-[12px] font-semibold text-white transition-all duration-200 active:scale-95"
         >
           <Plus size={14} />
           Add
