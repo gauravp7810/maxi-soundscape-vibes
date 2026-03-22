@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, Music2, ListMusic, Search, Settings } from "lucide-react";
 
@@ -9,7 +10,7 @@ const tabs = [
   { to: "/settings",  label: "Settings", Icon: Settings  },
 ];
 
-export const BottomNav = () => {
+export const BottomNav = memo(function BottomNav() {
   const { pathname } = useLocation();
 
   return (

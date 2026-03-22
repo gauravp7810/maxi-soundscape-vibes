@@ -42,8 +42,11 @@ const Row = ({
   right?: React.ReactNode;
   onClick?: () => void;
 }) => (
-  <button
+  <div
     onClick={onClick}
+    role={onClick ? "button" : undefined}
+    tabIndex={onClick ? 0 : undefined}
+    onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
     className={`flex w-full items-center gap-4 rounded-2xl glass px-4 py-3.5 text-left transition-all duration-200 ${
       onClick ? "hover:bg-white/8 active:scale-[0.99] cursor-pointer" : "cursor-default"
     }`}
@@ -56,7 +59,7 @@ const Row = ({
       {desc && <p className="text-[12px] text-muted-foreground/55 mt-0.5">{desc}</p>}
     </div>
     {right}
-  </button>
+  </div>
 );
 
 const Settings = () => {

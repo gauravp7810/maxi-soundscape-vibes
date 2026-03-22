@@ -210,7 +210,7 @@ const Home = () => {
               <div className="absolute -inset-y-3 inset-x-0" />
               <div className="h-[3px] w-full rounded-full bg-white/10 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-muted-foreground/40 group-hover:bg-foreground/50 transition-colors"
+                  className="h-full rounded-full progress-fill-gradient transition-all"
                   style={{ width: `${effectiveVol}%` }}
                 />
               </div>

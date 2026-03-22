@@ -1,10 +1,10 @@
-import { useRef, useState } from "react";
+import { useRef, useState, memo } from "react";
 import { Play, Pause, SkipBack, SkipForward, Heart, X } from "lucide-react";
 import { usePlayer, fmt } from "@/context/PlayerContext";
 import albumCover from "@/assets/album-cover.jpg";
 
 /* The mini player sits above the bottom nav (above 64px) */
-export const MiniPlayer = ({ visible }: { visible?: boolean }) => {
+export const MiniPlayer = memo(function MiniPlayer({ visible }: { visible?: boolean }) {
   const {
     tracks, currentTrack, isPlaying, progress, liked, transitioning,
     setIsPlaying, setLiked, skip,
