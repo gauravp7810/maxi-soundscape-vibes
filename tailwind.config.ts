@@ -89,12 +89,7 @@ export default {
         },
         "album-pulse": {
           "0%, 100%": { transform: "scale(1)" },
-          "50%": { transform: "scale(1.02)" },
-        },
-        "press": {
-          "0%": { transform: "scale(1)" },
-          "50%": { transform: "scale(0.92)" },
-          "100%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.008)" },
         },
       },
       animation: {
