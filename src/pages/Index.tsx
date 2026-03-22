@@ -1,5 +1,2 @@
-import MusicPlayer from "@/components/MusicPlayer";
-
-const Index = () => <MusicPlayer />;
-
-export default Index;
+import Home from "./Home";
+export default Home;
