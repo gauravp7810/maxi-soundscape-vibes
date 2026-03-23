@@ -131,4 +131,4 @@ export const MiniPlayer = memo(function MiniPlayer({ visible }: { visible?: bool
       </div>
     </div>
   );
-};
+});

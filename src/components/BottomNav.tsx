@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, Music2, ListMusic, Search, Settings } from "lucide-react";
+import { Chrome as Home, Music2, ListMusic, Search, Settings } from "lucide-react";
 
 const tabs = [
   { to: "/",          label: "Home",     Icon: Home      },
@@ -52,4 +52,4 @@ export const BottomNav = memo(function BottomNav() {
       </div>
     </nav>
   );
-};
+});
