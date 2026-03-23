@@ -34,9 +34,6 @@ export const defaultTracks: Track[] = [
   { id: "d0", title: "Midnight Drive",  artist: "Lena Voss",    duration: 237 },
   { id: "d1", title: "Golden Hour",     artist: "Theo Marcell", duration: 204 },
   { id: "d2", title: "Still Waters",    artist: "Aya Nakamura", duration: 189 },
-  { id: "d3", title: "Neon Rain",       artist: "Cassie Drake", duration: 221 },
-  { id: "d4", title: "Lost Signal",     artist: "Mika Sato",    duration: 195 },
-  { id: "d5", title: "Glass Canvas",    artist: "Elara Moon",   duration: 213 },
 ];
 
 /* ─── Context shape ──────────────────────────────── */
@@ -104,7 +101,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const [recentlyPlayed, setRecentlyPlayed] = useState<string[]>(["d0"]);
   const [playlists,     setPlaylists]     = useState<Playlist[]>([
     { id: "pl0", name: "Favourites", trackIds: ["d0", "d2"] },
-    { id: "pl1", name: "Chill Vibes", trackIds: ["d1", "d3", "d5"] },
+    { id: "pl1", name: "Chill Vibes", trackIds: ["d1"] },
   ]);
   const [theme, setThemeState] = useState<"dark" | "light">("dark");
 
@@ -115,6 +112,33 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const track       = tracks[currentTrack];
   const isRealAudio = !!track?.url;
   const effectiveVol = muted ? 0 : volume;
+
+  /* ── Generate audio URLs on mount ──────────────── */
+  useEffect(() => {
+    const generateAudioUrl = (freq: number = 440): string => {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const sr = ctx.sampleRate;
+        const dur = 5;
+        const buf = ctx.createBuffer(1, sr * dur, sr);
+        const ch = buf.getChannelData(0);
+        for (let i = 0; i < sr * dur; i++) {
+          const t = i / sr;
+          ch[i] = Math.sin(2 * Math.PI * freq * t) * 0.15;
+        }
+        const blob = new Blob([buf], { type: 'audio/wav' });
+        return URL.createObjectURL(blob);
+      } catch (e) {
+        console.error("Failed to generate audio:", e);
+        return "";
+      }
+    };
+
+    setTracks(prev => prev.map((t, i) => ({
+      ...t,
+      url: t.url || generateAudioUrl(440 + i * 20)
+    })));
+  }, []);
 
   /* ── Theme management ──────────────────────────── */
   const setTheme = useCallback((t: "dark" | "light") => {
@@ -149,19 +173,24 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     ));
     const onTime  = () => setProgress(audio.currentTime);
     const onEnded = () => {
-      if (repeat) { audio.currentTime = 0; audio.play().catch(() => {}); }
+      if (repeat) { audio.currentTime = 0; audio.play().catch(err => console.error("Replay error:", err)); }
       else skip(1);
+    };
+    const onError = (e: Event) => {
+      console.error("Audio error:", (e.target as HTMLAudioElement).error?.message);
     };
 
     audio.addEventListener("loadedmetadata", onMeta);
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("ended", onEnded);
-    if (isPlaying) audio.play().catch(() => {});
+    audio.addEventListener("error", onError);
+    if (isPlaying) audio.play().catch(err => console.error("Play error:", err));
 
     return () => {
       audio.removeEventListener("loadedmetadata", onMeta);
       audio.removeEventListener("timeupdate", onTime);
       audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("error", onError);
       audio.pause();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,7 +213,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   /* ── Play/pause sync ───────────────────────────── */
   useEffect(() => {
     if (!audioRef.current || !isRealAudio) return;
-    isPlaying ? audioRef.current.play().catch(() => {}) : audioRef.current.pause();
+    if (isPlaying) {
+      audioRef.current.play().catch(err => {
+        console.error("Play failed:", err);
+      });
+    } else {
+      audioRef.current.pause();
+    }
   }, [isPlaying, isRealAudio]);
 
   /* ── Volume sync ───────────────────────────────── */
